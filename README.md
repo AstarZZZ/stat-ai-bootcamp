@@ -29,6 +29,7 @@
 │       ├── main.js
 │       └── styles.css
 ├── DEPLOYMENT.md
+├── QUESTION_IMPORT_README.md
 └── package.json
 ```
 
@@ -116,9 +117,13 @@ npm run seed:admin
 - 学习进度看板
 - 8 周计划打卡、LeetCode 打卡、学习记录
 - 管理员添加、编辑、删除题目
-- 题目支持文本题干、参考答案、图片上传
+- 题目支持文本题干、参考答案、图片上传、JSON 批量导入
 - 学生支持文本答案、图片答案提交
 - 管理员查看提交、手动批改、反馈、打分
+
+## 题目批量导入
+
+管理员可在「题目管理」上传 JSON 文件批量添加题目。JSON 支持数组格式和 `{ "questions": [...] }` 格式，详细字段说明见 [QUESTION_IMPORT_README.md](./QUESTION_IMPORT_README.md)。
 
 ## 部署
 

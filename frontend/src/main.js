@@ -114,6 +114,7 @@ createApp({
       mySubmissions: [],
       users: [],
       questionForm: { title: "", content: "", answer: "", image: null },
+      questionImport: { json: null, busy: false },
       answerDrafts: {},
       search: ""
     };
@@ -268,6 +269,25 @@ createApp({
       this.notify("题目已添加");
       await this.loadAll();
     },
+    async importQuestionsJson() {
+      if (!this.questionImport.json) {
+        this.notify("请先选择 JSON 文件");
+        return;
+      }
+
+      this.questionImport.busy = true;
+      try {
+        const form = new FormData();
+        form.append("json", this.questionImport.json);
+        const data = await this.api("/api/questions/import-json", { method: "POST", body: form });
+        this.questionImport = { json: null, busy: false };
+        this.notify(`已批量导入 ${data.imported} 道题`);
+        await this.loadAll();
+      } catch (error) {
+        this.notify(error.message);
+        this.questionImport.busy = false;
+      }
+    },
     async saveQuestion(question) {
       const form = new FormData();
       form.append("title", question.title);
@@ -407,6 +427,14 @@ createApp({
               <textarea v-model="questionForm.answer" placeholder="参考答案，仅管理员可见"></textarea>
               <input type="file" accept="image/*" @change="setFile($event, questionForm)">
               <button class="btn primary">添加题目</button>
+            </form>
+            <form v-if="isAdmin" @submit.prevent="importQuestionsJson" class="import-box">
+              <div>
+                <h3>批量导入题目</h3>
+                <p>上传 JSON 文件，支持数组或 { questions: [...] } 格式。图片地址可填 imagePath，单题图片文件仍可用上方表单添加。</p>
+              </div>
+              <input type="file" accept="application/json,.json" @change="setFile($event, questionImport, 'json')">
+              <button class="btn" :disabled="questionImport.busy">{{ questionImport.busy ? '导入中...' : '导入 JSON' }}</button>
             </form>
             <article v-for="question in questions" :key="question.id" class="question-card">
               <template v-if="isAdmin && question.editing">
