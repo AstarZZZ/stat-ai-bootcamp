@@ -863,22 +863,25 @@ $f'(x)=f(x)(1-f(x))$</pre>
               <table><thead><tr><th>表</th><th>估算行数</th><th>数据大小</th><th>索引大小</th></tr></thead>
               <tbody><tr v-for="table in databaseInfo.tables" :key="table.tableName"><td>{{ table.tableName }}</td><td>{{ table.tableRows ?? '-' }}</td><td>{{ table.dataLength }}</td><td>{{ table.indexLength }}</td></tr></tbody></table>
             </div>
-            <div class="log-list">
-              <article v-for="entry in logs" :key="entry.file + entry.time + entry.action + JSON.stringify(entry.details)" class="log-entry">
-                <div class="log-head">
+            <div class="log-terminal">
+              <div class="terminal-titlebar">
+                <span class="terminal-dots"><i></i><i></i><i></i></span>
+                <code>{{ logFilter.file || 'latest activity logs' }}</code>
+                <span>{{ logs.length }} lines</span>
+              </div>
+              <div class="terminal-body" role="log" aria-label="系统日志终端视图">
+                <div v-for="entry in logs" :key="entry.file + entry.time + entry.action + JSON.stringify(entry.details)" class="terminal-line">
+                  <time>{{ entry.time }}</time>
                   <span :class="logClass(entry.type)">[{{ entry.type || 'System' }}]</span>
                   <strong>{{ entry.action }}</strong>
-                  <time>{{ entry.time }}</time>
-                </div>
-                <div class="log-meta">
                   <span>{{ entry.file }}</span>
-                  <span v-if="entry.ip">IP {{ entry.ip }}</span>
+                  <span v-if="entry.ip">ip={{ entry.ip }}</span>
                   <span v-if="entry.method">{{ entry.method }} {{ entry.path }}</span>
-                  <span v-if="entry.actor">账号 {{ entry.actor.username }} · {{ entry.actor.role }}</span>
+                  <span v-if="entry.actor">actor={{ entry.actor.username }}/{{ entry.actor.role }}</span>
+                  <span v-if="logDetails(entry.details)" class="terminal-detail">{{ logDetails(entry.details) }}</span>
                 </div>
-                <p v-if="logDetails(entry.details)">{{ logDetails(entry.details) }}</p>
-              </article>
-              <div v-if="!logs.length" class="empty">暂无日志记录</div>
+                <div v-if="!logs.length" class="terminal-empty">no log lines</div>
+              </div>
             </div>
           </section>
 
