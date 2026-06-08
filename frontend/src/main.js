@@ -115,6 +115,7 @@ createApp({
       users: [],
       questionForm: { title: "", content: "", answer: "", image: null },
       questionImport: { json: null, busy: false },
+      showImportHelp: false,
       answerDrafts: {},
       search: ""
     };
@@ -288,6 +289,31 @@ createApp({
         this.questionImport.busy = false;
       }
     },
+    downloadQuestionTemplate() {
+      const template = {
+        questions: [
+          {
+            title: "描述性统计练习",
+            content: "给定数据 1, 2, 3, 4, 5，请计算均值和样本方差。",
+            answer: "均值为 3，样本方差为 2.5。"
+          },
+          {
+            questionTitle: "Python 列表练习",
+            stem: "写一个函数，返回列表中的最大值和最小值。",
+            referenceAnswer: "可使用 max(nums) 和 min(nums)，也可以手写循环。"
+          }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(template, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "question-import-template.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    },
     async saveQuestion(question) {
       const form = new FormData();
       form.append("title", question.title);
@@ -430,11 +456,36 @@ createApp({
             </form>
             <form v-if="isAdmin" @submit.prevent="importQuestionsJson" class="import-box">
               <div>
-                <h3>批量导入题目</h3>
+                <div class="import-title">
+                  <h3>批量导入题目</h3>
+                  <button type="button" class="help-icon" @click="showImportHelp = !showImportHelp" :aria-expanded="showImportHelp" aria-label="查看 JSON 导入格式说明">?</button>
+                </div>
                 <p>上传 JSON 文件，支持数组或 { questions: [...] } 格式。图片地址可填 imagePath，单题图片文件仍可用上方表单添加。</p>
               </div>
               <input type="file" accept="application/json,.json" @change="setFile($event, questionImport, 'json')">
+              <button type="button" class="btn" @click="downloadQuestionTemplate">下载模板</button>
               <button class="btn" :disabled="questionImport.busy">{{ questionImport.busy ? '导入中...' : '导入 JSON' }}</button>
+              <div v-if="showImportHelp" class="import-help">
+                <p><strong>支持格式 1：</strong>直接使用题目数组。</p>
+                <pre>[
+  {
+    "title": "描述性统计练习",
+    "content": "给定数据 1, 2, 3, 4, 5，请计算均值和样本方差。",
+    "answer": "均值为 3，样本方差为 2.5。"
+  }
+]</pre>
+                <p><strong>支持格式 2：</strong>使用 questions 字段。</p>
+                <pre>{
+  "questions": [
+    {
+      "title": "线性回归概念",
+      "content": "请解释最小二乘法的目标函数。",
+      "answer": "最小化预测值与真实值残差平方和。"
+    }
+  ]
+}</pre>
+                <p>必填：title、content。选填：answer、imagePath。也兼容 questionTitle、stem、referenceAnswer 等字段名。</p>
+              </div>
             </form>
             <article v-for="question in questions" :key="question.id" class="question-card">
               <template v-if="isAdmin && question.editing">

@@ -287,7 +287,7 @@ th {
 }
 .import-box {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) auto auto;
   gap: .8rem;
   align-items: center;
   margin: 1rem 0 1.2rem;
@@ -302,6 +302,45 @@ th {
 .import-box p {
   margin: 0;
   color: var(--muted);
+}
+.import-title {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.help-icon {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+}
+.import-help {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: .65rem;
+  padding: .85rem;
+  border-radius: 16px;
+  border: 1px solid rgba(52,120,246,.22);
+  background: rgba(52,120,246,.08);
+}
+.import-help pre {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: .85rem;
+  border-radius: 12px;
+  background: rgba(17,17,17,.9);
+  color: #fff;
+  font-size: .86rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 .grade-grid {
   display: grid;
