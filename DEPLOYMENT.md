@@ -6,7 +6,7 @@
 
 建议：
 
-- Docker Web：宿主机 `8080`，可改
+- Docker Web：宿主机 `33011`，用于外网访问 `http://49.235.185.176:33011`
 - Docker API：仅 Docker 内网 `api:3100`
 - Docker MySQL：仅 Docker 内网 `mysql:3306`
 - 现有 `frps`：保持原端口，不改动
@@ -18,7 +18,7 @@ sudo ss -lntup
 sudo systemctl status frps --no-pager
 ```
 
-如果 `8080` 已被占用，把 `.env` 里的 `WEB_PORT=8080` 改成其他端口，例如 `WEB_PORT=8090`。
+如果 `33011` 已被占用，把 `.env` 里的 `WEB_PORT=33011` 改成其他端口。
 
 ## 2. 安装 Docker
 
@@ -64,7 +64,9 @@ nano .env
 生产建议配置：
 
 ```env
-WEB_PORT=8080
+WEB_PORT=33011
+PUBLIC_BASE_URL=http://49.235.185.176:33011
+FRONTEND_ORIGIN=http://49.235.185.176:33011
 
 MYSQL_ROOT_PASSWORD=请改成强密码
 MYSQL_DATABASE=stat_ai_bootcamp
@@ -97,10 +99,10 @@ docker compose exec api npm run seed:admin
 
 ## 7. 访问系统
 
-如果 `WEB_PORT=8080`：
+如果 `WEB_PORT=33011`：
 
 ```text
-http://服务器公网IP:8080
+http://49.235.185.176:33011
 ```
 
 如果你用域名、Nginx 或 frp 做转发，则访问你的域名或转发入口。
@@ -109,23 +111,23 @@ http://服务器公网IP:8080
 
 只放行实际对外开放的端口：
 
-- 直接访问 Docker Web：放行 TCP `WEB_PORT`，例如 `8080`
+- 直接访问 Docker Web：放行 TCP `33011`
 - 如果由 Nginx / frps 统一转发：只放行你的转发入口端口，例如 `80`、`443` 或 frps 使用的端口
 
 不要放行 `3100` 或 `3306`。它们没有映射到宿主机，只在 Docker 内部网络里使用。
 
 ## 9. 与 frps 共存
 
-### 方案 A：Docker Web 使用 8080，frps 不动
+### 方案 A：Docker Web 使用 33011，frps 不动
 
 ```bash
-WEB_PORT=8080
+WEB_PORT=33011
 docker compose up -d
 ```
 
-腾讯云安全组放行 `8080`。
+腾讯云安全组放行 TCP `33011`，然后访问 `http://49.235.185.176:33011`。
 
-### 方案 B：frps 或其他服务占用 8080，项目换端口
+### 方案 B：frps 或其他服务占用 33011，项目换端口
 
 修改 `.env`：
 
@@ -151,10 +153,10 @@ http://服务器公网IP:8090
 
 ```yaml
 ports:
-  - "127.0.0.1:${WEB_PORT:-8080}:80"
+  - "127.0.0.1:${WEB_PORT:-33011}:80"
 ```
 
-然后让 frp 客户端或本机 Nginx 转发到 `127.0.0.1:8080`。
+然后让 frp 客户端或本机 Nginx 转发到 `127.0.0.1:33011`。
 
 ## 10. 数据与上传文件
 
@@ -213,10 +215,10 @@ docker compose logs -f mysql
 健康检查：
 
 ```bash
-curl http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:33011/api/health
 ```
 
-如果你修改了 `WEB_PORT`，把 `8080` 换成新端口。
+如果你修改了 `WEB_PORT`，把 `33011` 换成新端口。
 
 ## 13. 停止和删除
 

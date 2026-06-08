@@ -47,10 +47,16 @@ docker compose exec api npm run seed:admin
 默认访问：
 
 ```text
-http://localhost:8080
+http://localhost:33011
 ```
 
-如果 `8080` 与本机其他服务冲突，修改 `.env` 中的 `WEB_PORT`。
+云服务器外网访问地址按当前配置为：
+
+```text
+http://49.235.185.176:33011
+```
+
+如果 `33011` 与本机其他服务冲突，修改 `.env` 中的 `WEB_PORT`。
 
 ### 手动开发
 
