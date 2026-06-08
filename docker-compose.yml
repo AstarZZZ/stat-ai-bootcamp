@@ -1,0 +1,60 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: stat-ai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change_this_root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-stat_ai_bootcamp}
+      MYSQL_USER: ${MYSQL_USER:-stat_ai_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_this_db_password}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - stat_ai_mysql_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-change_this_root_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    container_name: stat-ai-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3100
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:${WEB_PORT:-8080}}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:${WEB_PORT:-8080}}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-stat_ai_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change_this_db_password}
+      DB_NAME: ${MYSQL_DATABASE:-stat_ai_bootcamp}
+      JWT_SECRET: ${JWT_SECRET:-change_this_long_random_secret}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-Admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin}
+    volumes:
+      - stat_ai_uploads:/app/uploads
+
+  web:
+    build:
+      context: ./frontend
+    container_name: stat-ai-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+volumes:
+  stat_ai_mysql_data:
+  stat_ai_uploads:
