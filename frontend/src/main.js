@@ -1,4 +1,4 @@
-import { createApp } from "vue";
+import { createApp } from "vue/dist/vue.esm-bundler.js";
 import "./styles.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
