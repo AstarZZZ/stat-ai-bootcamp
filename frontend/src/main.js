@@ -87,14 +87,43 @@ const WEEKS = [
   }
 ];
 
+WEEKS.forEach((week) => {
+  week.tasks = [
+    { key: "stats", title: "统计学重点", text: week.stats },
+    { key: "ai", title: "AI / 机器学习重点", text: week.ai },
+    { key: "lab", title: "Python / 实验任务", text: week.task },
+    { key: "output", title: "周产出", text: week.output }
+  ];
+});
+
+const GOALS = [
+  ["编程基础", "能用 Python 完成数据读取、清洗、统计和可视化。"],
+  ["统计建模", "能理解回归、分类、假设检验、交叉验证和模型评价。"],
+  ["机器学习", "能用 sklearn 完成常见监督学习和无监督学习任务。"],
+  ["深度学习", "能用 PyTorch 跑通简单神经网络训练流程。"],
+  ["大模型应用", "能理解 Transformer / LLM 基本概念，能使用大模型辅助文本和数据分析。"],
+  ["工程规范", "能使用 Git 管理代码，写 README 和实验报告。"],
+  ["项目能力", "能完成一个“统计分析 + AI 建模”的小型可复现项目。"],
+  ["统计表达", "能用指标、图表和文字说明模型结论、误差来源与局限性。"]
+];
+
 const PROJECTS = [
-  ["表格数据预测建模", "数据清洗 → EDA → 线性/Logistic 回归 → 随机森林/XGBoost 可选 → 指标评估"],
-  ["时间序列预测", "时间序列可视化 → 移动平均 → ARIMA/Prophet 可选 → 机器学习预测"],
-  ["文本分类与统计分析", "文本清洗 → 词频统计 → TF-IDF → Logistic 回归/朴素贝叶斯 → LLM 对比"],
-  ["A/B 测试与因果推断模拟", "随机实验模拟 → 假设检验 → 置信区间 → uplift 分析 → 可视化"],
-  ["LLM 数据分析助手", "上传表格数据 → 设计 prompt → 让 LLM 生成分析思路 → Python 验证结果"],
-  ["降维与聚类分析", "标准化 → PCA/t-SNE 可选 → K-means/层次聚类 → 聚类解释"],
-  ["推荐系统小实验", "用户-物品矩阵 → 相似度计算 → 协同过滤 → 推荐结果评估"]
+  ["表格数据预测建模", "数据清洗 → EDA → 线性/Logistic 回归 → 随机森林/XGBoost 可选 → 指标评估", "至少 1 个公开数据集；至少 3 个模型；至少 3 个评价指标；1 份误差分析", ["EDA", "Regression", "ML"]],
+  ["时间序列预测", "时间序列可视化 → 移动平均 → ARIMA/Prophet 可选 → 机器学习预测", "至少 1 个时间序列数据集；训练/测试划分；预测曲线；MAE/RMSE", ["Time Series", "Forecasting"]],
+  ["文本分类与统计分析", "文本清洗 → 词频统计 → TF-IDF → Logistic 回归/朴素贝叶斯 → LLM 对比", "至少 100 条文本；输出分类指标；比较传统模型与大模型输出", ["NLP", "TF-IDF", "LLM"]],
+  ["A/B 测试与因果推断模拟", "随机实验模拟 → 假设检验 → 置信区间 → uplift 分析 → 可视化", "构造或使用公开实验数据；完成显著性检验；解释结论和局限性", ["A/B Test", "Causal"]],
+  ["LLM 数据分析助手", "上传表格数据 → 设计 prompt → 让 LLM 生成分析思路 → Python 验证结果", "至少 1 个数据集；10 条 prompt 测试；指出 LLM 分析中的错误或幻觉", ["Prompt", "LLM", "Validation"]],
+  ["降维与聚类分析", "标准化 → PCA/t-SNE 可选 → K-means/层次聚类 → 聚类解释", "至少 1 个多维数据集；降维图；聚类结果；解释不同簇的统计特征", ["PCA", "Clustering"]],
+  ["推荐系统小实验", "用户-物品矩阵 → 相似度计算 → 协同过滤 → 推荐结果评估", "构造小型推荐数据；实现 Top-N 推荐；说明推荐结果是否合理", ["Recommender", "Similarity"]]
+];
+
+const ASSESSMENT = [
+  ["Python 与数据处理", "20%", "能独立处理 CSV/Excel，完成基础统计和可视化", "能写结构清晰的 notebook，完成数据清洗、统计分析、图表解释"],
+  ["统计建模能力", "20%", "理解线性回归、Logistic 回归、假设检验和基础指标", "能解释参数、残差、置信区间、偏差-方差和模型局限性"],
+  ["机器学习实验", "20%", "能用 sklearn 完成训练、预测和评价", "能比较多个模型，使用交叉验证，并进行误差分析"],
+  ["深度学习 / 大模型入门", "15%", "能跑通 PyTorch 或 Transformers 基础实验", "能解释模型训练流程、大模型输出风险和 prompt 设计原则"],
+  ["LeetCode 基础", "15%", "完成 20 题以上，有代码和思路", "完成 30 题以上，有复杂度分析和错题复盘"],
+  ["结课项目", "10%", "有可运行 Demo、README 和汇报", "项目可复现，有完整数据说明、模型比较、统计结论和局限性分析"]
 ];
 
 createApp({
@@ -108,7 +137,8 @@ createApp({
       loading: false,
       toast: "",
       dashboard: null,
-      progress: { weeks: {}, leetcode: {} },
+      progress: { weeks: {}, tasks: {}, leetcode: {} },
+      openWeeks: Object.fromEntries(WEEKS.map((week) => [week.week, true])),
       questions: [],
       submissions: [],
       mySubmissions: [],
@@ -135,8 +165,12 @@ createApp({
         week.task,
         week.output,
         week.leetcodeTheme,
+        ...week.tasks.map((task) => `${task.title} ${task.text}`),
         ...week.leetcode
       ].join(" ").toLowerCase().includes(q));
+    },
+    totalTasks() {
+      return WEEKS.reduce((sum, week) => sum + week.tasks.length, 0);
     },
     totalProblems() {
       return WEEKS.reduce((sum, week) => sum + week.leetcode.length, 0);
@@ -144,11 +178,20 @@ createApp({
     completedWeeks() {
       return Object.values(this.progress.weeks).filter((item) => item.completed).length;
     },
+    completedTasks() {
+      return Object.values(this.progress.tasks).filter((item) => item.completed).length;
+    },
     completedProblems() {
       return Object.values(this.progress.leetcode).filter((item) => item.completed).length;
     },
+    taskPercent() {
+      return Math.round((this.completedTasks / this.totalTasks) * 100);
+    },
+    leetcodePercent() {
+      return Math.round((this.completedProblems / this.totalProblems) * 100);
+    },
     localPercent() {
-      return Math.round(((this.completedWeeks + this.completedProblems) / (8 + this.totalProblems)) * 100);
+      return Math.round(((this.completedTasks + this.completedProblems) / (this.totalTasks + this.totalProblems)) * 100);
     }
   },
   async mounted() {
@@ -214,6 +257,7 @@ createApp({
       this.dashboard = dashboard;
       this.progress = {
         weeks: Object.fromEntries(progress.weeks.map((item) => [item.weekNumber, { completed: Boolean(item.completed), notes: item.notes || "" }])),
+        tasks: Object.fromEntries((progress.tasks || []).map((item) => [`${item.weekNumber}-${item.taskKey}`, { completed: Boolean(item.completed), note: item.note || "" }])),
         leetcode: Object.fromEntries(progress.leetcode.map((item) => [`${item.weekNumber}-${item.problemIndex}`, { completed: Boolean(item.completed), note: item.note || "" }]))
       };
       this.questions = questions.questions.map((item) => ({ ...item, editing: false, image: null }));
@@ -234,6 +278,11 @@ createApp({
       if (!this.progress.weeks[weekNumber]) this.progress.weeks[weekNumber] = { completed: false, notes: "" };
       return this.progress.weeks[weekNumber];
     },
+    taskState(weekNumber, taskKey) {
+      const key = `${weekNumber}-${taskKey}`;
+      if (!this.progress.tasks[key]) this.progress.tasks[key] = { completed: false, note: "" };
+      return this.progress.tasks[key];
+    },
     problemState(weekNumber, problemIndex) {
       const key = `${weekNumber}-${problemIndex}`;
       if (!this.progress.leetcode[key]) this.progress.leetcode[key] = { completed: false, note: "" };
@@ -248,6 +297,15 @@ createApp({
       this.notify("周进度已保存");
       await this.loadAll();
     },
+    async saveTask(weekNumber, taskKey) {
+      const item = this.taskState(weekNumber, taskKey);
+      await this.api(`/api/progress/task/${weekNumber}/${taskKey}`, {
+        method: "PUT",
+        body: JSON.stringify(item)
+      });
+      this.notify("任务点已打卡");
+      await this.loadAll();
+    },
     async saveProblem(weekNumber, problemIndex) {
       const item = this.problemState(weekNumber, problemIndex);
       await this.api(`/api/progress/leetcode/${weekNumber}/${problemIndex}`, {
@@ -256,6 +314,25 @@ createApp({
       });
       this.notify("刷题进度已保存");
       await this.loadAll();
+    },
+    weekTaskDoneCount(week) {
+      return week.tasks.filter((task) => this.taskState(week.week, task.key).completed).length;
+    },
+    weekProblemDoneCount(week) {
+      return week.leetcode.filter((problem, index) => this.problemState(week.week, index).completed).length;
+    },
+    weekStatusClass(week) {
+      const weekDone = this.weekState(week.week).completed;
+      const started = weekDone || this.weekTaskDoneCount(week) > 0 || this.weekProblemDoneCount(week) > 0 || this.weekState(week.week).notes.trim();
+      return weekDone ? "done" : started ? "active" : "";
+    },
+    weekStatusText(week) {
+      const weekDone = this.weekState(week.week).completed;
+      const started = weekDone || this.weekTaskDoneCount(week) > 0 || this.weekProblemDoneCount(week) > 0 || this.weekState(week.week).notes.trim();
+      return weekDone ? "已完成" : started ? "进行中" : "未开始";
+    },
+    toggleWeek(weekNumber) {
+      this.openWeeks[weekNumber] = !this.openWeeks[weekNumber];
     },
     setFile(event, target, key = "image") {
       target[key] = event.target.files?.[0] || null;
@@ -400,48 +477,104 @@ createApp({
             <div class="ring" :style="{'--value': localPercent + '%'}"><span>{{ localPercent }}%</span></div>
           </section>
 
-          <section v-if="view==='dashboard'" class="panel">
+          <section v-if="view==='dashboard' && isAdmin" class="panel">
             <div class="section-head"><h2>学习进度看板</h2><p>数据来自 MySQL，按当前登录账号统计。</p></div>
             <div class="stat-grid" v-if="dashboard">
-              <article v-if="isAdmin"><strong>{{ dashboard.cards.students }}</strong><span>学生数</span></article>
-              <article v-if="isAdmin"><strong>{{ dashboard.cards.questions }}</strong><span>题目数</span></article>
-              <article v-if="isAdmin"><strong>{{ dashboard.cards.pending }}</strong><span>待批改</span></article>
-              <article v-if="isAdmin"><strong>{{ dashboard.cards.graded }}</strong><span>已批改</span></article>
-              <article v-if="!isAdmin"><strong>{{ dashboard.cards.weekDone }} / 8</strong><span>完成周数</span></article>
-              <article v-if="!isAdmin"><strong>{{ dashboard.cards.leetcodeDone }} / {{ totalProblems }}</strong><span>刷题完成</span></article>
-              <article v-if="!isAdmin"><strong>{{ dashboard.cards.graded }}</strong><span>已评分提交</span></article>
-              <article v-if="!isAdmin"><strong>{{ dashboard.cards.averageScore }}</strong><span>平均分</span></article>
+              <article><strong>{{ dashboard.cards.students }}</strong><span>学生数</span></article>
+              <article><strong>{{ dashboard.cards.questions }}</strong><span>题目数</span></article>
+              <article><strong>{{ dashboard.cards.pending }}</strong><span>待批改</span></article>
+              <article><strong>{{ dashboard.cards.graded }}</strong><span>已批改</span></article>
             </div>
-            <div class="bar"><span :style="{width: localPercent + '%'}"></span></div>
-            <div v-if="isAdmin && dashboard?.recent?.length" class="table-wrap">
+            <div v-if="dashboard?.recent?.length" class="table-wrap">
               <table><thead><tr><th>学生</th><th>题目</th><th>状态</th><th>分数</th><th>更新时间</th></tr></thead>
               <tbody><tr v-for="item in dashboard.recent" :key="item.id"><td>{{ item.displayName }}</td><td>{{ item.title }}</td><td>{{ item.status }}</td><td>{{ item.score ?? '-' }}</td><td>{{ item.updatedAt }}</td></tr></tbody></table>
             </div>
           </section>
 
+          <template v-if="view==='dashboard' && !isAdmin">
+            <section class="progress-overview">
+              <div class="section-title">
+                <h2>学习进度总览</h2>
+                <p>勾选每个任务点和 LeetCode 题目后，进度会保存到服务器，换设备登录也能继续。</p>
+              </div>
+              <div class="dashboard-layout">
+                <div class="progress-panel">
+                  <div class="progress-row"><span>总进度</span><strong>{{ localPercent }}%</strong></div>
+                  <div class="bar"><span :style="{width: localPercent + '%'}"></span></div>
+                  <div class="progress-row"><span>任务点完成数</span><strong>{{ completedTasks }} / {{ totalTasks }}</strong></div>
+                  <div class="bar"><span :style="{width: taskPercent + '%'}"></span></div>
+                  <div class="progress-row"><span>LeetCode 完成数</span><strong>{{ completedProblems }} / {{ totalProblems }}</strong></div>
+                  <div class="bar"><span :style="{width: leetcodePercent + '%'}"></span></div>
+                </div>
+                <div class="progress-panel">
+                  <div class="progress-row"><span>服务器记录</span><strong>MySQL</strong></div>
+                  <p>本平台按账号保存学习计划、任务点打卡、刷题状态和学习记录。你可以从“学习计划”进入每周卡片逐项打卡。</p>
+                  <div class="controls">
+                    <button class="btn primary" @click="view='plan'">进入 8 周计划</button>
+                    <button class="btn" @click="view='questions'">查看题目</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="progress-overview">
+              <div class="section-title">
+                <h2>培养目标</h2>
+                <p>围绕统计学专业优势，强调数据、模型、评价和解释，而不是单纯追逐模型调用。</p>
+              </div>
+              <div class="goal-grid">
+                <article v-for="goal in GOALS" :key="goal[0]" class="goal-card">
+                  <h3>{{ goal[0] }}</h3>
+                  <p>{{ goal[1] }}</p>
+                </article>
+              </div>
+            </section>
+          </template>
+
           <section v-if="view==='plan'" class="panel">
-            <div class="section-head split"><div><h2>8 周学习计划</h2><p>完成状态和学习记录保存到服务器。</p></div><input v-model="search" class="search" placeholder="搜索周次、主题、重点或题目"></div>
+            <div class="section-title compact"><div><h2>8 周学习计划</h2><p>每周包含统计学重点、AI 重点、实验任务、周产出和 LeetCode。任务点与题目都可单独打卡。</p></div></div>
+            <input v-model="search" class="search" placeholder="搜索周次、主题、统计重点、AI重点或 LeetCode 题目...">
             <div v-if="!filteredWeeks.length" class="empty">没有匹配的学习任务</div>
-            <article v-for="week in filteredWeeks" :key="week.week" class="week-card">
-              <div class="week-top">
-                <div><h3>第 {{ week.week }} 周 · {{ week.title }}</h3><p>{{ week.output }}</p></div>
-                <label><input type="checkbox" v-model="weekState(week.week).completed" @change="saveWeek(week.week)"> 完成本周计划</label>
+            <article v-for="week in filteredWeeks" :key="week.week" class="week-card" :class="{open: openWeeks[week.week]}">
+              <div class="week-head" @click="toggleWeek(week.week)">
+                <div class="week-index">W{{ week.week }}</div>
+                <div class="week-title">
+                  <h3>{{ week.title }}</h3>
+                  <p>{{ week.stats }}</p>
+                </div>
+                <div class="status" :class="weekStatusClass(week)">{{ weekStatusText(week) }}</div>
               </div>
-              <details open>
-                <summary>学习重点</summary>
+              <div class="week-body">
+                <div class="week-tools">
+                  <label class="checkline" @click.stop><input type="checkbox" v-model="weekState(week.week).completed" @change="saveWeek(week.week)"> 完成本周计划</label>
+                  <span class="tag">任务点 {{ weekTaskDoneCount(week) }} / {{ week.tasks.length }}</span>
+                  <span class="tag">LeetCode {{ weekProblemDoneCount(week) }} / {{ week.leetcode.length }}</span>
+                  <span class="tag">{{ week.leetcodeTheme }}</span>
+                </div>
+
                 <div class="detail-grid">
-                  <p><strong>统计学重点</strong>{{ week.stats }}</p>
-                  <p><strong>AI / 机器学习重点</strong>{{ week.ai }}</p>
-                  <p><strong>Python / 实验任务</strong>{{ week.task }}</p>
+                  <div v-for="task in week.tasks" :key="task.key" class="detail">
+                    <label class="task-check">
+                      <input type="checkbox" v-model="taskState(week.week, task.key).completed" @change="saveTask(week.week, task.key)">
+                      <b>{{ task.title }}</b>
+                    </label>
+                    <span>{{ task.text }}</span>
+                    <input v-model="taskState(week.week, task.key).note" @blur="saveTask(week.week, task.key)" placeholder="任务备注 / 证据链接">
+                  </div>
                 </div>
-              </details>
-              <div class="leetcode-list">
-                <div v-for="(problem, index) in week.leetcode" :key="problem" class="problem-row">
-                  <label><input type="checkbox" v-model="problemState(week.week,index).completed" @change="saveProblem(week.week,index)"> {{ problem }}</label>
-                  <input v-model="problemState(week.week,index).note" @blur="saveProblem(week.week,index)" placeholder="错题原因 / 复盘记录">
+
+                <div class="detail leetcode-block">
+                  <b>LeetCode：{{ week.leetcodeTheme }}</b>
+                  <div class="leetcode-list">
+                    <div v-for="(problem, index) in week.leetcode" :key="problem" class="problem-row">
+                      <label><input type="checkbox" v-model="problemState(week.week,index).completed" @change="saveProblem(week.week,index)"> {{ problem }}</label>
+                      <input v-model="problemState(week.week,index).note" @blur="saveProblem(week.week,index)" placeholder="错题原因 / 复盘记录">
+                    </div>
+                  </div>
                 </div>
+
+                <textarea v-model="weekState(week.week).notes" @blur="saveWeek(week.week)" placeholder="本周完成内容 / 遇到的问题 / 下周计划 / 错题原因..."></textarea>
               </div>
-              <textarea v-model="weekState(week.week).notes" @blur="saveWeek(week.week)" placeholder="本周完成内容、遇到的问题、下周计划、LeetCode 错题原因"></textarea>
             </article>
           </section>
 
@@ -534,9 +667,32 @@ createApp({
             </div>
           </section>
 
+          <section v-if="!isAdmin" class="panel">
+            <div class="section-title compact"><div><h2>LeetCode 刷题安排</h2><p>以 Easy 为主，目标是建立 Python 代码基本功、复杂度意识和错题复盘习惯。</p></div></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>周次</th><th>算法主题</th><th>题目</th><th>完成</th></tr></thead>
+              <tbody><tr v-for="week in WEEKS" :key="week.week"><td>第 {{ week.week }} 周</td><td>{{ week.leetcodeTheme }}</td><td>{{ week.leetcode.join('；') }}</td><td>{{ weekProblemDoneCount(week) }} / {{ week.leetcode.length }}</td></tr></tbody></table>
+            </div>
+          </section>
+
           <section class="panel">
-            <div class="section-head"><h2>结课项目方向</h2><p>建议 2-3 人一组完成可复现项目。</p></div>
-            <div class="project-grid"><article v-for="project in PROJECTS" :key="project[0]"><h3>{{ project[0] }}</h3><p>{{ project[1] }}</p></article></div>
+            <div class="section-title compact"><div><h2>结课项目选题</h2><p>项目建议优先选择“统计分析 + AI 建模”的可复现小项目。</p></div></div>
+            <div class="project-grid">
+              <article v-for="project in PROJECTS" :key="project[0]">
+                <h3>{{ project[0] }}</h3>
+                <p><b>路线：</b>{{ project[1] }}</p>
+                <p><b>交付：</b>{{ project[2] }}</p>
+                <div class="tag-row"><span v-for="tag in project[3]" :key="tag" class="tag">{{ tag }}</span></div>
+              </article>
+            </div>
+          </section>
+
+          <section v-if="!isAdmin" class="panel">
+            <div class="section-title compact"><div><h2>考核标准</h2><p>过程性评价优先：代码、实验、解释、复盘和项目可复现性都纳入考核。</p></div></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>考核模块</th><th>权重</th><th>合格标准</th><th>优秀标准</th></tr></thead>
+              <tbody><tr v-for="row in ASSESSMENT" :key="row[0]"><td v-for="cell in row" :key="cell">{{ cell }}</td></tr></tbody></table>
+            </div>
           </section>
         </main>
       </template>
@@ -544,6 +700,6 @@ createApp({
     </div>
   `,
   setup() {
-    return { PROJECTS };
+    return { WEEKS, GOALS, PROJECTS, ASSESSMENT };
   }
 }).mount("#app");

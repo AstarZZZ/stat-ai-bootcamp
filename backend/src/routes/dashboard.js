@@ -1,11 +1,13 @@
 import express from "express";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { ensureTaskProgressTable } from "../ensureSchema.js";
 
 const router = express.Router();
 router.use(requireAuth);
 
 router.get("/", async (req, res) => {
+  await ensureTaskProgressTable();
   if (req.user.role === "admin") {
     const [users] = await query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'");
     const [questions] = await query("SELECT COUNT(*) AS total FROM questions");
@@ -39,16 +41,21 @@ router.get("/", async (req, res) => {
     "SELECT COUNT(*) AS total FROM leetcode_progress WHERE user_id = :userId AND completed = 1",
     { userId: req.user.id }
   );
+  const [taskDone] = await query(
+    "SELECT COUNT(*) AS total FROM task_progress WHERE user_id = :userId AND completed = 1",
+    { userId: req.user.id }
+  );
   const [graded] = await query(
     "SELECT COUNT(*) AS total, AVG(score) AS averageScore FROM submissions WHERE user_id = :userId AND status = 'graded'",
     { userId: req.user.id }
   );
-  const totalUnits = 8 + 32;
-  const doneUnits = Number(weekDone.total) + Number(leetcodeDone.total);
+  const totalUnits = 32 + 31;
+  const doneUnits = Number(taskDone.total) + Number(leetcodeDone.total);
   res.json({
     role: "student",
     cards: {
       weekDone: weekDone.total,
+      taskDone: taskDone.total,
       leetcodeDone: leetcodeDone.total,
       graded: graded.total,
       averageScore: graded.averageScore ? Number(graded.averageScore).toFixed(1) : "-"
