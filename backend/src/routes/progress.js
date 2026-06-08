@@ -2,6 +2,7 @@ import express from "express";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { ensureTaskProgressTable } from "../ensureSchema.js";
+import { logRequest } from "../logger.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -32,6 +33,7 @@ router.put("/week/:weekNumber", async (req, res) => {
     VALUES (:userId, :weekNumber, :completed, :notes)
     ON DUPLICATE KEY UPDATE completed = VALUES(completed), notes = VALUES(notes)
   `, { userId: req.user.id, weekNumber, completed, notes });
+  logRequest("User", "update-week-progress", req, { weekNumber, completed: Boolean(completed), notesLength: notes.length });
   res.json({ ok: true });
 });
 
@@ -45,6 +47,7 @@ router.put("/leetcode/:weekNumber/:problemIndex", async (req, res) => {
     VALUES (:userId, :weekNumber, :problemIndex, :completed, :note)
     ON DUPLICATE KEY UPDATE completed = VALUES(completed), note = VALUES(note)
   `, { userId: req.user.id, weekNumber, problemIndex, completed, note });
+  logRequest("User", "update-leetcode-progress", req, { weekNumber, problemIndex, completed: Boolean(completed), noteLength: note.length });
   res.json({ ok: true });
 });
 
@@ -63,6 +66,7 @@ router.put("/task/:weekNumber/:taskKey", async (req, res) => {
     VALUES (:userId, :weekNumber, :taskKey, :completed, :note)
     ON DUPLICATE KEY UPDATE completed = VALUES(completed), note = VALUES(note)
   `, { userId: req.user.id, weekNumber, taskKey, completed, note });
+  logRequest("User", "update-task-progress", req, { weekNumber, taskKey, completed: Boolean(completed), noteLength: note.length });
   res.json({ ok: true });
 });
 

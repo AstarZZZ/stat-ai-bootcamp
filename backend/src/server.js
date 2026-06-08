@@ -10,6 +10,8 @@ import questionRoutes from "./routes/questions.js";
 import submissionRoutes from "./routes/submissions.js";
 import progressRoutes from "./routes/progress.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import logRoutes from "./routes/logs.js";
+import { requestLogger } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,6 +25,7 @@ app.use(cors({
   origin: process.env.FRONTEND_ORIGIN?.split(",") || true,
   credentials: true
 }));
+app.use(requestLogger);
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
@@ -33,6 +36,7 @@ app.use("/api/questions", questionRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/logs", logRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

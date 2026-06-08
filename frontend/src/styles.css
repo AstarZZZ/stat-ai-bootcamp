@@ -477,7 +477,51 @@ th {
   padding: .8rem;
   border-radius: 15px;
   background: rgba(52,120,246,.09);
+  color: #1d1d1f;
+}
+.answer > strong {
+  display: block;
+  margin-bottom: .45rem;
   color: #1d5fd1;
+}
+.markdown-body {
+  overflow-x: auto;
+  line-height: 1.7;
+  color: var(--text);
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body p {
+  margin: .55rem 0;
+}
+.markdown-body table {
+  min-width: 0;
+  margin: .8rem 0;
+  font-size: .94rem;
+}
+.markdown-body th, .markdown-body td {
+  padding: .55rem .65rem;
+}
+.markdown-body code {
+  padding: .12rem .28rem;
+  border-radius: 6px;
+  background: rgba(17,17,17,.08);
+}
+.markdown-body pre {
+  overflow-x: auto;
+  padding: .85rem;
+  border-radius: 12px;
+  background: rgba(17,17,17,.9);
+  color: #fff;
+}
+.markdown-body .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: .3rem 0;
 }
 .import-box {
   display: grid;
@@ -548,6 +592,117 @@ th {
   color: var(--muted);
   border: 1px dashed rgba(17,17,17,.22);
   border-radius: 20px;
+}
+.log-controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(220px, 1fr);
+  gap: .8rem;
+  margin-bottom: 1rem;
+}
+.db-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .8rem;
+  margin-bottom: 1rem;
+}
+.db-summary article {
+  padding: .95rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.72);
+}
+.db-summary strong {
+  display: block;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.db-summary span {
+  color: var(--muted);
+  font-size: .85rem;
+}
+.compact-table {
+  margin-bottom: 1rem;
+}
+.compact-table table {
+  min-width: 560px;
+}
+.log-list {
+  display: grid;
+  gap: .75rem;
+}
+.log-entry {
+  padding: .9rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,.7);
+}
+.log-head {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex-wrap: wrap;
+}
+.log-head strong {
+  font-size: .98rem;
+}
+.log-head time {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .82rem;
+}
+.log-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 .55rem;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: .78rem;
+  border: 1px solid var(--line);
+}
+.log-type.user {
+  color: #075985;
+  background: rgba(14,165,233,.12);
+  border-color: rgba(14,165,233,.28);
+}
+.log-type.admin {
+  color: #7c2d12;
+  background: rgba(249,115,22,.13);
+  border-color: rgba(249,115,22,.28);
+}
+.log-type.database {
+  color: #166534;
+  background: rgba(34,197,94,.13);
+  border-color: rgba(34,197,94,.28);
+}
+.log-type.access {
+  color: #3730a3;
+  background: rgba(99,102,241,.13);
+  border-color: rgba(99,102,241,.28);
+}
+.log-type.system {
+  color: #374151;
+  background: rgba(107,114,128,.13);
+  border-color: rgba(107,114,128,.28);
+}
+.log-meta {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .55rem;
+  color: var(--muted);
+  font-size: .82rem;
+}
+.log-meta span {
+  padding: .2rem .45rem;
+  border-radius: 999px;
+  background: rgba(17,17,17,.05);
+}
+.log-entry p {
+  margin: .65rem 0 0;
+  color: #344054;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 .toast {
   position: fixed;

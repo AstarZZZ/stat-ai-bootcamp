@@ -3,5 +3,6 @@ dist/
 .env
 uploads/*
 !backend/uploads/.gitkeep
+logs/
 .DS_Store
 npm-debug.log*

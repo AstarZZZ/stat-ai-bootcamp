@@ -117,13 +117,17 @@ npm run seed:admin
 - 学习进度看板
 - 8 周默认学习计划、32 个任务点逐项打卡、LeetCode 打卡、学习记录
 - 管理员添加、编辑、删除题目
-- 题目支持文本题干、参考答案、图片上传、JSON 批量导入
+- 题目支持 Markdown 题干、LaTeX 公式、参考答案、图片上传、JSON/Markdown/TXT 批量导入
 - 学生支持文本答案、图片答案提交
 - 管理员查看提交、手动批改、反馈、打分
 
 ## 题目批量导入
 
-管理员可在「题目管理」上传 JSON 文件批量添加题目。JSON 支持数组格式和 `{ "questions": [...] }` 格式，详细字段说明见 [QUESTION_IMPORT_README.md](./QUESTION_IMPORT_README.md)。
+管理员可在「题目管理」上传 JSON、Markdown 或 TXT 文件批量添加题目。JSON 支持数组格式和 `{ "questions": [...] }` 格式；Markdown/TXT 支持用一级标题或“第 n 题”分隔题目，并用 `## 参考答案` 分隔答案。详细字段说明见 [QUESTION_IMPORT_README.md](./QUESTION_IMPORT_README.md)。
+
+## 管理员日志
+
+管理员端提供「日志文档」页面，按 5 天一个文件记录访问 IP、用户操作、管理员操作和数据库写入事件，并提供数据库表概览。
 
 ## 部署
 

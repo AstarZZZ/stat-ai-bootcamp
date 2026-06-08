@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import { query } from "../db.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { logRequest } from "../logger.js";
 
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
@@ -24,6 +25,7 @@ router.patch("/:id", async (req, res) => {
     "UPDATE users SET role = :role, is_active = :isActive, display_name = COALESCE(NULLIF(:displayName, ''), display_name) WHERE id = :id",
     { id, role, isActive, displayName }
   );
+  logRequest("Admin", "update-user", req, { userId: id, role, isActive: Boolean(isActive), displayNameUpdated: Boolean(displayName) });
   res.json({ ok: true });
 });
 
@@ -33,6 +35,7 @@ router.post("/:id/password", async (req, res) => {
   if (password.length < 6) return res.status(400).json({ message: "密码至少 6 个字符" });
   const passwordHash = await bcrypt.hash(password, 10);
   await query("UPDATE users SET password_hash = :passwordHash WHERE id = :id", { id, passwordHash });
+  logRequest("Admin", "reset-user-password", req, { userId: id });
   res.json({ ok: true });
 });
 

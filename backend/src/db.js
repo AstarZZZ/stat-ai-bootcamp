@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { logEvent } from "./logger.js";
 
 export const pool = mysql.createPool({
   host: process.env.DB_HOST || "127.0.0.1",
@@ -13,5 +14,14 @@ export const pool = mysql.createPool({
 
 export async function query(sql, params = {}) {
   const [rows] = await pool.execute(sql, params);
+  const normalized = String(sql).replace(/\s+/g, " ").trim();
+  const verb = normalized.split(" ")[0]?.toUpperCase();
+  if (["INSERT", "UPDATE", "DELETE", "ALTER", "CREATE", "DROP"].includes(verb)) {
+    logEvent("Database", "write-query", {
+      operation: verb,
+      sql: normalized.slice(0, 220),
+      paramKeys: Object.keys(params)
+    });
+  }
   return rows;
 }

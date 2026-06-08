@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import { query } from "../db.js";
 import { requireAuth, signToken } from "../middleware/auth.js";
+import { logRequest } from "../logger.js";
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ router.post("/register", async (req, res) => {
   );
   const users = await query("SELECT id, username, display_name, role FROM users WHERE id = :id", { id: result.insertId });
   const user = users[0];
+  logRequest("User", "register", req, { userId: user.id, username: user.username });
   res.status(201).json({ token: signToken(user), user: publicUser(user) });
 });
 
@@ -45,6 +47,8 @@ router.post("/login", async (req, res) => {
   if (!user || !user.is_active) return res.status(401).json({ message: "用户名或密码错误" });
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(401).json({ message: "用户名或密码错误" });
+  req.user = user;
+  logRequest(user.role === "admin" ? "Admin" : "User", "login", req, { userId: user.id, username: user.username });
   res.json({ token: signToken(user), user: publicUser(user) });
 });
 

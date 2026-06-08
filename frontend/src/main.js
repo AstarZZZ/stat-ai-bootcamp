@@ -1,8 +1,25 @@
 import { createApp } from "vue/dist/vue.esm-bundler.js";
+import MarkdownIt from "markdown-it";
+import katex from "katex";
+import texmath from "markdown-it-texmath";
+import "katex/dist/katex.min.css";
+import "markdown-it-texmath/css/texmath.css";
 import "./styles.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 const TOKEN_KEY = "stat_ai_bootcamp_token";
+const markdown = new MarkdownIt({
+  breaks: true,
+  html: false,
+  linkify: true
+}).use(texmath, {
+  engine: katex,
+  delimiters: ["dollars", "brackets", "beg_end"],
+  katexOptions: {
+    throwOnError: false,
+    strict: "ignore"
+  }
+});
 
 const WEEKS = [
   {
@@ -143,8 +160,12 @@ createApp({
       submissions: [],
       mySubmissions: [],
       users: [],
+      logs: [],
+      logFiles: [],
+      logFilter: { type: "", file: "", busy: false },
+      databaseInfo: null,
       questionForm: { title: "", content: "", answer: "", image: null },
-      questionImport: { json: null, busy: false },
+      questionImport: { file: null, busy: false },
       showImportHelp: false,
       answerDrafts: {},
       search: ""
@@ -269,6 +290,7 @@ createApp({
         const [subs, users] = await Promise.all([this.api("/api/submissions"), this.api("/api/users")]);
         this.submissions = subs.submissions.map((item) => ({ ...item, scoreDraft: item.score, feedbackDraft: item.feedback || "" }));
         this.users = users.users;
+        if (this.view === "logs") await this.loadLogs();
       } else {
         const mine = await this.api("/api/submissions/my");
         this.mySubmissions = mine.submissions;
@@ -337,6 +359,42 @@ createApp({
     setFile(event, target, key = "image") {
       target[key] = event.target.files?.[0] || null;
     },
+    markdown(value) {
+      return markdown.render(String(value || "").trim() || "未设置");
+    },
+    logClass(type) {
+      return `log-type ${String(type || "System").toLowerCase()}`;
+    },
+    async loadLogs() {
+      if (!this.isAdmin) return;
+      this.logFilter.busy = true;
+      try {
+        const params = new URLSearchParams({ limit: "300" });
+        if (this.logFilter.type) params.set("type", this.logFilter.type);
+        if (this.logFilter.file) params.set("file", this.logFilter.file);
+        const [logs, database] = await Promise.all([
+          this.api(`/api/logs?${params.toString()}`),
+          this.api("/api/logs/database")
+        ]);
+        this.logs = logs.entries;
+        this.logFiles = logs.files;
+        this.databaseInfo = database;
+      } catch (error) {
+        this.notify(error.message);
+      } finally {
+        this.logFilter.busy = false;
+      }
+    },
+    logDetails(details) {
+      if (!details || typeof details !== "object") return "";
+      return Object.entries(details)
+        .map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : value}`)
+        .join(" · ");
+    },
+    setView(nextView) {
+      this.view = nextView;
+      if (nextView === "logs") this.loadLogs();
+    },
     async createQuestion() {
       const form = new FormData();
       Object.entries(this.questionForm).forEach(([key, value]) => {
@@ -348,17 +406,17 @@ createApp({
       await this.loadAll();
     },
     async importQuestionsJson() {
-      if (!this.questionImport.json) {
-        this.notify("请先选择 JSON 文件");
+      if (!this.questionImport.file) {
+        this.notify("请先选择 JSON、Markdown 或 TXT 文件");
         return;
       }
 
       this.questionImport.busy = true;
       try {
         const form = new FormData();
-        form.append("json", this.questionImport.json);
+        form.append("file", this.questionImport.file);
         const data = await this.api("/api/questions/import-json", { method: "POST", body: form });
-        this.questionImport = { json: null, busy: false };
+        this.questionImport = { file: null, busy: false };
         this.notify(`已批量导入 ${data.imported} 道题`);
         await this.loadAll();
       } catch (error) {
@@ -375,9 +433,9 @@ createApp({
             answer: "均值为 3，样本方差为 2.5。"
           },
           {
-            questionTitle: "Python 列表练习",
-            stem: "写一个函数，返回列表中的最大值和最小值。",
-            referenceAnswer: "可使用 max(nums) 和 min(nums)，也可以手写循环。"
+            questionTitle: "神经网络公式练习",
+            stem: "已知 Sigmoid 函数 $f(x)=\\frac{1}{1+e^{-x}}$，请写出它的导数。",
+            referenceAnswer: "$f'(x)=f(x)(1-f(x))$"
           }
         ]
       };
@@ -459,11 +517,12 @@ createApp({
         <header class="topbar">
           <div class="brand-line"><span class="brand-mark"></span><strong>Stat AI Bootcamp</strong></div>
           <nav>
-            <button @click="view='dashboard'" :class="{active:view==='dashboard'}">看板</button>
-            <button v-if="!isAdmin" @click="view='plan'" :class="{active:view==='plan'}">学习计划</button>
-            <button @click="view='questions'" :class="{active:view==='questions'}">{{ isAdmin ? '题目管理' : '题目提交' }}</button>
-            <button v-if="isAdmin" @click="view='grading'" :class="{active:view==='grading'}">批改审查</button>
-            <button v-if="isAdmin" @click="view='users'" :class="{active:view==='users'}">用户管理</button>
+            <button @click="setView('dashboard')" :class="{active:view==='dashboard'}">看板</button>
+            <button v-if="!isAdmin" @click="setView('plan')" :class="{active:view==='plan'}">学习计划</button>
+            <button @click="setView('questions')" :class="{active:view==='questions'}">{{ isAdmin ? '题目管理' : '题目提交' }}</button>
+            <button v-if="isAdmin" @click="setView('grading')" :class="{active:view==='grading'}">批改审查</button>
+            <button v-if="isAdmin" @click="setView('users')" :class="{active:view==='users'}">用户管理</button>
+            <button v-if="isAdmin" @click="setView('logs')" :class="{active:view==='logs'}">日志文档</button>
           </nav>
           <div class="user-box"><span>{{ user.displayName }} · {{ isAdmin ? '管理员' : '学生' }}</span><button @click="logout">退出</button></div>
         </header>
@@ -510,8 +569,8 @@ createApp({
                   <div class="progress-row"><span>服务器记录</span><strong>MySQL</strong></div>
                   <p>本平台按账号保存学习计划、任务点打卡、刷题状态和学习记录。你可以从“学习计划”进入每周卡片逐项打卡。</p>
                   <div class="controls">
-                    <button class="btn primary" @click="view='plan'">进入 8 周计划</button>
-                    <button class="btn" @click="view='questions'">查看题目</button>
+                    <button class="btn primary" @click="setView('plan')">进入 8 周计划</button>
+                    <button class="btn" @click="setView('questions')">查看题目</button>
                   </div>
                 </div>
               </div>
@@ -591,15 +650,15 @@ createApp({
               <div>
                 <div class="import-title">
                   <h3>批量导入题目</h3>
-                  <button type="button" class="help-icon" @click="showImportHelp = !showImportHelp" :aria-expanded="showImportHelp" aria-label="查看 JSON 导入格式说明">?</button>
+                  <button type="button" class="help-icon" @click="showImportHelp = !showImportHelp" :aria-expanded="showImportHelp" aria-label="查看导入格式说明">?</button>
                 </div>
-                <p>上传 JSON 文件，支持数组或 { questions: [...] } 格式。图片地址可填 imagePath，单题图片文件仍可用上方表单添加。</p>
+                <p>上传 JSON、Markdown 或 TXT 文件。Markdown 支持表格、列表和 $...$ / $$...$$ 公式。</p>
               </div>
-              <input type="file" accept="application/json,.json" @change="setFile($event, questionImport, 'json')">
+              <input type="file" accept="application/json,text/markdown,text/plain,.json,.md,.markdown,.txt" @change="setFile($event, questionImport, 'file')">
               <button type="button" class="btn" @click="downloadQuestionTemplate">下载模板</button>
-              <button class="btn" :disabled="questionImport.busy">{{ questionImport.busy ? '导入中...' : '导入 JSON' }}</button>
+              <button class="btn" :disabled="questionImport.busy">{{ questionImport.busy ? '导入中...' : '批量导入' }}</button>
               <div v-if="showImportHelp" class="import-help">
-                <p><strong>支持格式 1：</strong>直接使用题目数组。</p>
+                <p><strong>JSON：</strong>直接使用题目数组，或使用 { questions: [...] }。</p>
                 <pre>[
   {
     "title": "描述性统计练习",
@@ -617,7 +676,13 @@ createApp({
     }
   ]
 }</pre>
-                <p>必填：title、content。选填：answer、imagePath。也兼容 questionTitle、stem、referenceAnswer 等字段名。</p>
+                <p><strong>Markdown/TXT：</strong>用一级标题或“第 n 题：...”分隔题目，用“## 参考答案”分隔答案。</p>
+                <pre># 第 1 题：Sigmoid 公式
+已知 $f(x)=\frac{1}{1+e^{-x}}$，请写出导数。
+
+## 参考答案
+$f'(x)=f(x)(1-f(x))$</pre>
+                <p>必填：title、content。选填：answer、imagePath。JSON 也兼容 questionTitle、stem、referenceAnswer 等字段名。</p>
               </div>
             </form>
             <article v-for="question in questions" :key="question.id" class="question-card">
@@ -630,9 +695,9 @@ createApp({
               </template>
               <template v-else>
                 <h3>{{ question.title }}</h3>
-                <p>{{ question.content }}</p>
+                <div class="markdown-body" v-html="markdown(question.content)"></div>
                 <img v-if="question.imagePath" :src="imageUrl(question.imagePath)" alt="题目图片">
-                <p v-if="isAdmin" class="answer">参考答案：{{ question.answer || '未设置' }}</p>
+                <div v-if="isAdmin" class="answer"><strong>参考答案</strong><div class="markdown-body" v-html="markdown(question.answer)"></div></div>
                 <div v-if="isAdmin" class="actions"><button class="btn" @click="question.editing=true">编辑</button><button class="btn danger" @click="deleteQuestion(question.id)">删除</button></div>
                 <form v-else @submit.prevent="submitAnswer(question.id)" class="submit-box">
                   <textarea v-model="answerDrafts[question.id].answerText" placeholder="输入你的答案"></textarea>
@@ -652,7 +717,7 @@ createApp({
             <article v-for="item in submissions" :key="item.id" class="question-card">
               <h3>{{ item.title }}</h3>
               <p class="muted">{{ item.displayName }}（{{ item.username }}） · {{ item.status }}</p>
-              <p>{{ item.answerText }}</p>
+              <div class="markdown-body" v-html="markdown(item.answerText)"></div>
               <img v-if="item.imagePath" :src="imageUrl(item.imagePath)" alt="学生提交图片">
               <div class="grade-grid"><input v-model="item.scoreDraft" type="number" min="0" max="100" placeholder="分数 0-100"><textarea v-model="item.feedbackDraft" placeholder="批改反馈"></textarea><button class="btn primary" @click="grade(item)">保存评分</button></div>
             </article>
@@ -664,6 +729,57 @@ createApp({
             <div class="table-wrap">
               <table><thead><tr><th>用户名</th><th>显示名</th><th>角色</th><th>启用</th><th>操作</th></tr></thead>
               <tbody><tr v-for="item in users" :key="item.id"><td>{{ item.username }}</td><td><input v-model="item.displayName"></td><td><select v-model="item.role"><option value="student">student</option><option value="admin">admin</option></select></td><td><input type="checkbox" v-model="item.isActive"></td><td><button class="btn" @click="saveUser(item)">保存</button></td></tr></tbody></table>
+            </div>
+          </section>
+
+          <section v-if="view==='logs' && isAdmin" class="panel">
+            <div class="section-head split">
+              <div>
+                <h2>日志文档</h2>
+                <p>按 5 天保存一个日志文件，记录访问 IP、用户操作、管理员操作和数据库写入事件。</p>
+              </div>
+              <button class="btn primary" @click="loadLogs" :disabled="logFilter.busy">{{ logFilter.busy ? '刷新中...' : '刷新' }}</button>
+            </div>
+            <div class="log-controls">
+              <select v-model="logFilter.type" @change="loadLogs">
+                <option value="">全部类型</option>
+                <option value="Access">Access</option>
+                <option value="User">User</option>
+                <option value="Admin">Admin</option>
+                <option value="Database">Database</option>
+                <option value="System">System</option>
+              </select>
+              <select v-model="logFilter.file" @change="loadLogs">
+                <option value="">最近日志文件</option>
+                <option v-for="file in logFiles" :key="file" :value="file">{{ file }}</option>
+              </select>
+            </div>
+            <div v-if="databaseInfo" class="db-summary">
+              <article><strong>{{ databaseInfo.database }}</strong><span>数据库</span></article>
+              <article><strong>{{ databaseInfo.counts.users }}</strong><span>用户</span></article>
+              <article><strong>{{ databaseInfo.counts.questions }}</strong><span>题目</span></article>
+              <article><strong>{{ databaseInfo.counts.submissions }}</strong><span>提交</span></article>
+            </div>
+            <div v-if="databaseInfo?.tables?.length" class="table-wrap compact-table">
+              <table><thead><tr><th>表</th><th>估算行数</th><th>数据大小</th><th>索引大小</th></tr></thead>
+              <tbody><tr v-for="table in databaseInfo.tables" :key="table.tableName"><td>{{ table.tableName }}</td><td>{{ table.tableRows ?? '-' }}</td><td>{{ table.dataLength }}</td><td>{{ table.indexLength }}</td></tr></tbody></table>
+            </div>
+            <div class="log-list">
+              <article v-for="entry in logs" :key="entry.file + entry.time + entry.action + JSON.stringify(entry.details)" class="log-entry">
+                <div class="log-head">
+                  <span :class="logClass(entry.type)">[{{ entry.type || 'System' }}]</span>
+                  <strong>{{ entry.action }}</strong>
+                  <time>{{ entry.time }}</time>
+                </div>
+                <div class="log-meta">
+                  <span>{{ entry.file }}</span>
+                  <span v-if="entry.ip">IP {{ entry.ip }}</span>
+                  <span v-if="entry.method">{{ entry.method }} {{ entry.path }}</span>
+                  <span v-if="entry.actor">账号 {{ entry.actor.username }} · {{ entry.actor.role }}</span>
+                </div>
+                <p v-if="logDetails(entry.details)">{{ logDetails(entry.details) }}</p>
+              </article>
+              <div v-if="!logs.length" class="empty">暂无日志记录</div>
             </div>
           </section>
 

@@ -2,6 +2,7 @@ import express from "express";
 import { query } from "../db.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { upload, fileUrl } from "../middleware/upload.js";
+import { logRequest } from "../logger.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -40,6 +41,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     answerText,
     imagePath: fileUrl(req.file)
   });
+  logRequest("User", "submit-answer", req, { questionId, hasImage: Boolean(req.file), answerLength: answerText.length });
   res.status(201).json({ ok: true });
 });
 
@@ -67,6 +69,7 @@ router.patch("/:id/grade", requireAdmin, async (req, res) => {
     "UPDATE submissions SET score = :score, feedback = :feedback, status = 'graded' WHERE id = :id",
     { id, score, feedback }
   );
+  logRequest("Admin", "grade-submission", req, { submissionId: id, score, feedbackLength: feedback.length });
   res.json({ ok: true });
 });
 
