@@ -22,6 +22,8 @@ sudo systemctl status frps --no-pager
 
 ## 2. 安装 Docker
 
+### 方案 A：官方 Docker 源
+
 ```bash
 sudo apt update
 sudo apt install -y ca-certificates curl git
@@ -31,6 +33,38 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+如果执行 `curl https://download.docker.com/...` 时出现 `Recv failure: Connection reset by peer`，通常是服务器访问 Docker 官方源被重置。腾讯云国内服务器可以改用下面的镜像方案。
+
+### 方案 B：使用国内 Docker CE 镜像源
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://mirrors.aliyun.com/docker-ce/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+### 方案 C：Ubuntu 仓库备用安装
+
+如果 Docker CE 镜像源也不可用，可以先用 Ubuntu 自带仓库安装，足够运行本项目：
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2 git
+sudo systemctl enable --now docker
+```
+
+如果 `docker-compose-v2` 包不存在，改用：
+
+```bash
+sudo apt install -y docker.io docker-compose git
+sudo systemctl enable --now docker
 ```
 
 允许当前用户运行 Docker：
