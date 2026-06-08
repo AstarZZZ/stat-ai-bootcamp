@@ -3,16 +3,26 @@ import { query } from "../db.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { upload, fileUrl } from "../middleware/upload.js";
 import { logRequest } from "../logger.js";
+import { ensureQuizSchema } from "../ensureSchema.js";
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(async (req, res, next) => {
+  try {
+    await ensureQuizSchema();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/my", async (req, res) => {
   const submissions = await query(`
     SELECT s.id, s.question_id AS questionId, s.answer_text AS answerText, s.image_path AS imagePath,
-           s.score, s.feedback, s.status, s.updated_at AS updatedAt, q.title
+           s.score, s.feedback, s.status, s.updated_at AS updatedAt, q.title, z.title AS quizTitle
     FROM submissions s
     JOIN questions q ON q.id = s.question_id
+    LEFT JOIN quizzes z ON z.id = q.quiz_id
     WHERE s.user_id = :userId
     ORDER BY s.updated_at DESC
   `, { userId: req.user.id });
@@ -49,9 +59,10 @@ router.get("/", requireAdmin, async (req, res) => {
   const submissions = await query(`
     SELECT s.id, s.question_id AS questionId, s.user_id AS userId, s.answer_text AS answerText,
            s.image_path AS imagePath, s.score, s.feedback, s.status, s.created_at AS createdAt,
-           s.updated_at AS updatedAt, q.title, u.username, u.display_name AS displayName
+           s.updated_at AS updatedAt, q.title, z.title AS quizTitle, u.username, u.display_name AS displayName
     FROM submissions s
     JOIN questions q ON q.id = s.question_id
+    LEFT JOIN quizzes z ON z.id = q.quiz_id
     JOIN users u ON u.id = s.user_id
     ORDER BY s.updated_at DESC
   `);

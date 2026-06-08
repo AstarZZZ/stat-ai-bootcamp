@@ -157,6 +157,10 @@ createApp({
       progress: { weeks: {}, tasks: {}, leetcode: {} },
       openWeeks: Object.fromEntries(WEEKS.map((week) => [week.week, true])),
       questions: [],
+      quizzes: [],
+      selectedQuizId: "",
+      quizForm: { title: "", description: "" },
+      selectedQuestionIds: [],
       submissions: [],
       mySubmissions: [],
       users: [],
@@ -213,6 +217,12 @@ createApp({
     },
     localPercent() {
       return Math.round(((this.completedTasks + this.completedProblems) / (this.totalTasks + this.totalProblems)) * 100);
+    },
+    selectedQuiz() {
+      return this.quizzes.find((quiz) => Number(quiz.id) === Number(this.selectedQuizId)) || null;
+    },
+    allQuestionsSelected() {
+      return this.questions.length > 0 && this.questions.every((question) => this.selectedQuestionIds.includes(question.id));
     }
   },
   async mounted() {
@@ -270,18 +280,25 @@ createApp({
       localStorage.removeItem(TOKEN_KEY);
     },
     async loadAll() {
-      const [dashboard, progress, questions] = await Promise.all([
+      const [dashboard, progress, quizzes] = await Promise.all([
         this.api("/api/dashboard"),
         this.api("/api/progress"),
-        this.api("/api/questions")
+        this.api("/api/questions/quizzes")
       ]);
       this.dashboard = dashboard;
+      this.quizzes = quizzes.quizzes || [];
+      const selectedStillExists = this.quizzes.some((quiz) => Number(quiz.id) === Number(this.selectedQuizId));
+      if (!selectedStillExists) this.selectedQuizId = this.quizzes[0]?.id || "";
       this.progress = {
         weeks: Object.fromEntries(progress.weeks.map((item) => [item.weekNumber, { completed: Boolean(item.completed), notes: item.notes || "" }])),
         tasks: Object.fromEntries((progress.tasks || []).map((item) => [`${item.weekNumber}-${item.taskKey}`, { completed: Boolean(item.completed), note: item.note || "" }])),
         leetcode: Object.fromEntries(progress.leetcode.map((item) => [`${item.weekNumber}-${item.problemIndex}`, { completed: Boolean(item.completed), note: item.note || "" }]))
       };
+      const questions = this.selectedQuizId
+        ? await this.api(`/api/questions?quizId=${this.selectedQuizId}`)
+        : { questions: [] };
       this.questions = questions.questions.map((item) => ({ ...item, editing: false, image: null }));
+      this.selectedQuestionIds = this.selectedQuestionIds.filter((id) => this.questions.some((question) => question.id === id));
       this.questions.forEach((question) => {
         if (!this.answerDrafts[question.id]) this.answerDrafts[question.id] = { answerText: "", image: null };
       });
@@ -396,16 +413,25 @@ createApp({
       if (nextView === "logs") this.loadLogs();
     },
     async createQuestion() {
+      if (!this.selectedQuizId) {
+        this.notify("请先新建或选择一个测验");
+        return;
+      }
       const form = new FormData();
       Object.entries(this.questionForm).forEach(([key, value]) => {
         if (value) form.append(key, value);
       });
+      form.append("quizId", this.selectedQuizId);
       await this.api("/api/questions", { method: "POST", body: form });
       this.questionForm = { title: "", content: "", answer: "", image: null };
       this.notify("题目已添加");
       await this.loadAll();
     },
     async importQuestionsJson() {
+      if (!this.selectedQuizId) {
+        this.notify("请先新建或选择一个测验");
+        return;
+      }
       if (!this.questionImport.file) {
         this.notify("请先选择 JSON、Markdown 或 TXT 文件");
         return;
@@ -415,6 +441,7 @@ createApp({
       try {
         const form = new FormData();
         form.append("file", this.questionImport.file);
+        form.append("quizId", this.selectedQuizId);
         const data = await this.api("/api/questions/import-json", { method: "POST", body: form });
         this.questionImport = { file: null, busy: false };
         this.notify(`已批量导入 ${data.imported} 道题`);
@@ -451,6 +478,7 @@ createApp({
     },
     async saveQuestion(question) {
       const form = new FormData();
+      form.append("quizId", question.quizId || this.selectedQuizId);
       form.append("title", question.title);
       form.append("content", question.content);
       form.append("answer", question.answer || "");
@@ -463,7 +491,45 @@ createApp({
     async deleteQuestion(id) {
       if (!confirm("确定删除这道题吗？相关提交也会删除。")) return;
       await this.api(`/api/questions/${id}`, { method: "DELETE" });
+      this.selectedQuestionIds = this.selectedQuestionIds.filter((item) => item !== id);
       this.notify("题目已删除");
+      await this.loadAll();
+    },
+    async createQuiz() {
+      const title = this.quizForm.title.trim();
+      if (!title) {
+        this.notify("测验名称必填");
+        return;
+      }
+      const data = await this.api("/api/questions/quizzes", {
+        method: "POST",
+        body: JSON.stringify(this.quizForm)
+      });
+      this.quizForm = { title: "", description: "" };
+      this.selectedQuizId = data.id;
+      this.notify("测验已创建");
+      await this.loadAll();
+    },
+    async selectQuiz(id) {
+      this.selectedQuizId = id;
+      this.selectedQuestionIds = [];
+      await this.loadAll();
+    },
+    toggleAllQuestions(event) {
+      this.selectedQuestionIds = event.target.checked ? this.questions.map((question) => question.id) : [];
+    },
+    async bulkDeleteQuestions() {
+      if (!this.selectedQuestionIds.length) {
+        this.notify("请先选择题目");
+        return;
+      }
+      if (!confirm(`确定删除选中的 ${this.selectedQuestionIds.length} 道题吗？相关提交也会删除。`)) return;
+      const data = await this.api("/api/questions/bulk-delete", {
+        method: "POST",
+        body: JSON.stringify({ ids: this.selectedQuestionIds })
+      });
+      this.selectedQuestionIds = [];
+      this.notify(`已删除 ${data.deleted} 道题`);
       await this.loadAll();
     },
     async submitAnswer(questionId) {
@@ -540,6 +606,7 @@ createApp({
             <div class="section-head"><h2>学习进度看板</h2><p>数据来自 MySQL，按当前登录账号统计。</p></div>
             <div class="stat-grid" v-if="dashboard">
               <article><strong>{{ dashboard.cards.students }}</strong><span>学生数</span></article>
+              <article><strong>{{ dashboard.cards.quizzes }}</strong><span>测验数</span></article>
               <article><strong>{{ dashboard.cards.questions }}</strong><span>题目数</span></article>
               <article><strong>{{ dashboard.cards.pending }}</strong><span>待批改</span></article>
               <article><strong>{{ dashboard.cards.graded }}</strong><span>已批改</span></article>
@@ -638,13 +705,32 @@ createApp({
           </section>
 
           <section v-if="view==='questions'" class="panel">
-            <div class="section-head"><h2>{{ isAdmin ? '题目管理' : '题目提交' }}</h2><p>支持文本题干、答案和图片上传。学生提交后由管理员手动批改。</p></div>
+            <div class="section-head"><h2>{{ isAdmin ? '测验与题目管理' : '测验题目提交' }}</h2><p>先选择测验，再查看或维护该测验下的题目。支持 Markdown 公式、参考答案和图片。</p></div>
+            <form v-if="isAdmin" @submit.prevent="createQuiz" class="quiz-create">
+              <input v-model="quizForm.title" required placeholder="新建测验名称，例如：五月考试">
+              <input v-model="quizForm.description" placeholder="测验说明，可选">
+              <button class="btn primary">新建测验</button>
+            </form>
+            <div class="quiz-tabs" v-if="quizzes.length">
+              <button v-for="quiz in quizzes" :key="quiz.id" class="quiz-tab" :class="{active:Number(selectedQuizId)===Number(quiz.id)}" @click="selectQuiz(quiz.id)">
+                <strong>{{ quiz.title }}</strong>
+                <span>{{ quiz.questionCount }} 题</span>
+              </button>
+            </div>
+            <div v-else class="empty">{{ isAdmin ? '请先新建一个测验' : '暂无可提交的测验' }}</div>
+            <div v-if="selectedQuiz" class="quiz-current">
+              <div>
+                <h3>{{ selectedQuiz.title }}</h3>
+                <p>{{ selectedQuiz.description || '暂无测验说明' }}</p>
+              </div>
+              <span class="tag">{{ questions.length }} 道题</span>
+            </div>
             <form v-if="isAdmin" @submit.prevent="createQuestion" class="editor">
               <input v-model="questionForm.title" required placeholder="题目标题">
               <textarea v-model="questionForm.content" required placeholder="题目内容"></textarea>
               <textarea v-model="questionForm.answer" placeholder="参考答案，仅管理员可见"></textarea>
               <input type="file" accept="image/*" @change="setFile($event, questionForm)">
-              <button class="btn primary">添加题目</button>
+              <button class="btn primary" :disabled="!selectedQuizId">添加到当前测验</button>
             </form>
             <form v-if="isAdmin" @submit.prevent="importQuestionsJson" class="import-box">
               <div>
@@ -652,11 +738,11 @@ createApp({
                   <h3>批量导入题目</h3>
                   <button type="button" class="help-icon" @click="showImportHelp = !showImportHelp" :aria-expanded="showImportHelp" aria-label="查看导入格式说明">?</button>
                 </div>
-                <p>上传 JSON、Markdown 或 TXT 文件。Markdown 支持表格、列表和 $...$ / $$...$$ 公式。</p>
+                <p>上传 JSON、Markdown 或 TXT 文件，导入到当前测验。Markdown 支持表格、列表和 $...$ / $$...$$ 公式。</p>
               </div>
               <input type="file" accept="application/json,text/markdown,text/plain,.json,.md,.markdown,.txt" @change="setFile($event, questionImport, 'file')">
               <button type="button" class="btn" @click="downloadQuestionTemplate">下载模板</button>
-              <button class="btn" :disabled="questionImport.busy">{{ questionImport.busy ? '导入中...' : '批量导入' }}</button>
+              <button class="btn" :disabled="questionImport.busy || !selectedQuizId">{{ questionImport.busy ? '导入中...' : '批量导入到当前测验' }}</button>
               <div v-if="showImportHelp" class="import-help">
                 <p><strong>JSON：</strong>直接使用题目数组，或使用 { questions: [...] }。</p>
                 <pre>[
@@ -685,8 +771,16 @@ $f'(x)=f(x)(1-f(x))$</pre>
                 <p>必填：title、content。选填：answer、imagePath。JSON 也兼容 questionTitle、stem、referenceAnswer 等字段名。</p>
               </div>
             </form>
+            <div v-if="isAdmin && selectedQuiz" class="bulk-toolbar">
+              <label><input type="checkbox" :checked="allQuestionsSelected" @change="toggleAllQuestions"> 全选当前测验题目</label>
+              <span>{{ selectedQuestionIds.length }} / {{ questions.length }} 已选择</span>
+              <button class="btn danger" :disabled="!selectedQuestionIds.length" @click="bulkDeleteQuestions">批量删除</button>
+            </div>
             <article v-for="question in questions" :key="question.id" class="question-card">
               <template v-if="isAdmin && question.editing">
+                <select v-model="question.quizId">
+                  <option v-for="quiz in quizzes" :key="quiz.id" :value="quiz.id">{{ quiz.title }}</option>
+                </select>
                 <input v-model="question.title">
                 <textarea v-model="question.content"></textarea>
                 <textarea v-model="question.answer"></textarea>
@@ -694,7 +788,10 @@ $f'(x)=f(x)(1-f(x))$</pre>
                 <div class="actions"><button class="btn primary" @click="saveQuestion(question)">保存</button><button class="btn" @click="question.editing=false">取消</button></div>
               </template>
               <template v-else>
-                <h3>{{ question.title }}</h3>
+                <div class="question-title-row">
+                  <label v-if="isAdmin" class="row-check"><input type="checkbox" :value="question.id" v-model="selectedQuestionIds"></label>
+                  <h3>{{ question.title }}</h3>
+                </div>
                 <div class="markdown-body" v-html="markdown(question.content)"></div>
                 <img v-if="question.imagePath" :src="imageUrl(question.imagePath)" alt="题目图片">
                 <div v-if="isAdmin" class="answer"><strong>参考答案</strong><div class="markdown-body" v-html="markdown(question.answer)"></div></div>
@@ -706,9 +803,10 @@ $f'(x)=f(x)(1-f(x))$</pre>
                 </form>
               </template>
             </article>
+            <div v-if="selectedQuiz && !questions.length" class="empty">当前测验暂无题目</div>
             <div v-if="!isAdmin && mySubmissions.length" class="table-wrap">
-              <table><thead><tr><th>题目</th><th>状态</th><th>分数</th><th>反馈</th></tr></thead>
-              <tbody><tr v-for="item in mySubmissions" :key="item.id"><td>{{ item.title }}</td><td>{{ item.status }}</td><td>{{ item.score ?? '-' }}</td><td>{{ item.feedback || '-' }}</td></tr></tbody></table>
+              <table><thead><tr><th>测验</th><th>题目</th><th>状态</th><th>分数</th><th>反馈</th></tr></thead>
+              <tbody><tr v-for="item in mySubmissions" :key="item.id"><td>{{ item.quizTitle || '-' }}</td><td>{{ item.title }}</td><td>{{ item.status }}</td><td>{{ item.score ?? '-' }}</td><td>{{ item.feedback || '-' }}</td></tr></tbody></table>
             </div>
           </section>
 
@@ -716,7 +814,7 @@ $f'(x)=f(x)(1-f(x))$</pre>
             <div class="section-head"><h2>批改审查</h2><p>查看学生文本与图片答案，手动给分并写反馈。</p></div>
             <article v-for="item in submissions" :key="item.id" class="question-card">
               <h3>{{ item.title }}</h3>
-              <p class="muted">{{ item.displayName }}（{{ item.username }}） · {{ item.status }}</p>
+              <p class="muted">{{ item.quizTitle || '未分组测验' }} · {{ item.displayName }}（{{ item.username }}） · {{ item.status }}</p>
               <div class="markdown-body" v-html="markdown(item.answerText)"></div>
               <img v-if="item.imagePath" :src="imageUrl(item.imagePath)" alt="学生提交图片">
               <div class="grade-grid"><input v-model="item.scoreDraft" type="number" min="0" max="100" placeholder="分数 0-100"><textarea v-model="item.feedbackDraft" placeholder="批改反馈"></textarea><button class="btn primary" @click="grade(item)">保存评分</button></div>
@@ -756,6 +854,7 @@ $f'(x)=f(x)(1-f(x))$</pre>
             </div>
             <div v-if="databaseInfo" class="db-summary">
               <article><strong>{{ databaseInfo.database }}</strong><span>数据库</span></article>
+              <article><strong>{{ databaseInfo.counts.quizzes }}</strong><span>测验</span></article>
               <article><strong>{{ databaseInfo.counts.users }}</strong><span>用户</span></article>
               <article><strong>{{ databaseInfo.counts.questions }}</strong><span>题目</span></article>
               <article><strong>{{ databaseInfo.counts.submissions }}</strong><span>提交</span></article>

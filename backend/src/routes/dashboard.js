@@ -1,22 +1,25 @@
 import express from "express";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
-import { ensureTaskProgressTable } from "../ensureSchema.js";
+import { ensureQuizSchema, ensureTaskProgressTable } from "../ensureSchema.js";
 
 const router = express.Router();
 router.use(requireAuth);
 
 router.get("/", async (req, res) => {
+  await ensureQuizSchema();
   await ensureTaskProgressTable();
   if (req.user.role === "admin") {
     const [users] = await query("SELECT COUNT(*) AS total FROM users WHERE role = 'student'");
+    const [quizzes] = await query("SELECT COUNT(*) AS total FROM quizzes");
     const [questions] = await query("SELECT COUNT(*) AS total FROM questions");
     const [submitted] = await query("SELECT COUNT(*) AS total FROM submissions WHERE status = 'submitted'");
     const [graded] = await query("SELECT COUNT(*) AS total FROM submissions WHERE status = 'graded'");
     const recent = await query(`
-      SELECT s.id, s.score, s.status, s.updated_at AS updatedAt, q.title, u.display_name AS displayName
+      SELECT s.id, s.score, s.status, s.updated_at AS updatedAt, q.title, z.title AS quizTitle, u.display_name AS displayName
       FROM submissions s
       JOIN questions q ON q.id = s.question_id
+      LEFT JOIN quizzes z ON z.id = q.quiz_id
       JOIN users u ON u.id = s.user_id
       ORDER BY s.updated_at DESC
       LIMIT 8
@@ -25,6 +28,7 @@ router.get("/", async (req, res) => {
       role: "admin",
       cards: {
         students: users.total,
+        quizzes: quizzes.total,
         questions: questions.total,
         pending: submitted.total,
         graded: graded.total

@@ -4,6 +4,7 @@ import { query } from "../db.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { upload, fileUrl } from "../middleware/upload.js";
 import { logRequest } from "../logger.js";
+import { ensureQuizSchema } from "../ensureSchema.js";
 
 const router = express.Router();
 
@@ -29,12 +30,13 @@ function normalizeQuestion(item, index) {
   const content = firstText(item, ["content", "question", "stem", "body", "题目内容", "题干", "问题"]);
   const answer = firstText(item, ["answer", "referenceAnswer", "solution", "参考答案", "答案", "解析"]);
   const imagePath = firstText(item, ["imagePath", "imageUrl", "image", "图片", "图片地址"]);
+  const quizTitle = firstText(item, ["quizTitle", "quiz", "测验", "测验标题"]);
 
   if (!title || !content) {
     throw new Error(`第 ${index + 1} 条题目缺少 title/content`);
   }
 
-  return { title, content, answer, imagePath: imagePath || null };
+  return { title, content, answer, imagePath: imagePath || null, quizTitle: quizTitle || "" };
 }
 
 function parseJsonQuestions(text) {
@@ -159,21 +161,90 @@ export function parseQuestionImport(buffer) {
   throw new Error(`文件解析失败：${errors.join("；")}`);
 }
 
+async function resolveQuizId(req) {
+  const quizId = Number(req.body.quizId || req.query.quizId);
+  if (!Number.isInteger(quizId) || quizId <= 0) {
+    throw new Error("请先选择测验");
+  }
+  const rows = await query("SELECT id FROM quizzes WHERE id = :quizId LIMIT 1", { quizId });
+  if (!rows.length) throw new Error("测验不存在");
+  return quizId;
+}
+
+router.use(async (req, res, next) => {
+  try {
+    await ensureQuizSchema();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.use(requireAuth);
+
+router.get("/quizzes", async (req, res) => {
+  const quizzes = await query(`
+    SELECT z.id, z.title, z.description, z.created_at AS createdAt, z.updated_at AS updatedAt,
+           COUNT(q.id) AS questionCount
+    FROM quizzes z
+    LEFT JOIN questions q ON q.quiz_id = z.id
+    GROUP BY z.id, z.title, z.description, z.created_at, z.updated_at
+    ORDER BY z.created_at DESC, z.id DESC
+  `);
+  res.json({ quizzes });
+});
+
+router.post("/quizzes", requireAdmin, async (req, res) => {
+  const title = String(req.body.title || "").trim();
+  const description = String(req.body.description || "").trim();
+  if (!title) return res.status(400).json({ message: "测验名称必填" });
+
+  const result = await query(
+    "INSERT INTO quizzes (title, description, created_by) VALUES (:title, :description, :createdBy)",
+    { title, description, createdBy: req.user.id }
+  );
+  logRequest("Admin", "create-quiz", req, { quizId: result.insertId, title });
+  res.status(201).json({ id: result.insertId });
+});
+
+router.put("/quizzes/:id", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const title = String(req.body.title || "").trim();
+  const description = String(req.body.description || "").trim();
+  if (!title) return res.status(400).json({ message: "测验名称必填" });
+
+  await query(
+    "UPDATE quizzes SET title = :title, description = :description WHERE id = :id",
+    { id, title, description }
+  );
+  logRequest("Admin", "update-quiz", req, { quizId: id, title });
+  res.json({ ok: true });
+});
+
+router.delete("/quizzes/:id", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  await query("DELETE FROM quizzes WHERE id = :id", { id });
+  logRequest("Admin", "delete-quiz", req, { quizId: id });
+  res.json({ ok: true });
+});
+
 router.post("/import-json", requireAuth, requireAdmin, importUpload.any(), async (req, res) => {
   const file = req.files?.[0];
   if (!file) return res.status(400).json({ message: "请上传 JSON、Markdown 或 TXT 文件" });
 
+  const quizId = await resolveQuizId(req);
   const questions = parseQuestionImport(file.buffer);
   const ids = [];
   for (const question of questions) {
     const result = await query(
-      "INSERT INTO questions (title, content, answer, image_path, created_by) VALUES (:title, :content, :answer, :imagePath, :createdBy)",
-      { ...question, createdBy: req.user.id }
+      "INSERT INTO questions (quiz_id, title, content, answer, image_path, created_by) VALUES (:quizId, :title, :content, :answer, :imagePath, :createdBy)",
+      { ...question, quizId, createdBy: req.user.id }
     );
     ids.push(result.insertId);
   }
 
   logRequest("Admin", "import-questions", req, {
+    quizId,
     fileName: file.originalname,
     imported: ids.length,
     ids
@@ -181,52 +252,73 @@ router.post("/import-json", requireAuth, requireAdmin, importUpload.any(), async
   res.status(201).json({ imported: ids.length, ids });
 });
 
-router.use(requireAuth);
-
 router.get("/", async (req, res) => {
+  const quizId = Number(req.query.quizId);
+  const params = {};
+  const where = Number.isInteger(quizId) && quizId > 0 ? "WHERE q.quiz_id = :quizId" : "";
+  if (where) params.quizId = quizId;
+
   const questions = await query(`
-    SELECT q.id, q.title, q.content, q.answer, q.image_path AS imagePath, q.created_at AS createdAt,
-           u.display_name AS createdBy
+    SELECT q.id, q.quiz_id AS quizId, q.title, q.content, q.answer, q.image_path AS imagePath, q.created_at AS createdAt,
+           z.title AS quizTitle, u.display_name AS createdBy
     FROM questions q
+    LEFT JOIN quizzes z ON z.id = q.quiz_id
     LEFT JOIN users u ON u.id = q.created_by
+    ${where}
     ORDER BY q.created_at DESC
-  `);
+  `, params);
   res.json({ questions });
 });
 
 router.post("/", requireAdmin, upload.single("image"), async (req, res) => {
+  const quizId = await resolveQuizId(req);
   const title = String(req.body.title || "").trim();
   const content = String(req.body.content || "").trim();
   const answer = String(req.body.answer || "").trim();
   if (!title || !content) return res.status(400).json({ message: "题目标题和内容必填" });
 
   const result = await query(
-    "INSERT INTO questions (title, content, answer, image_path, created_by) VALUES (:title, :content, :answer, :imagePath, :createdBy)",
-    { title, content, answer, imagePath: fileUrl(req.file), createdBy: req.user.id }
+    "INSERT INTO questions (quiz_id, title, content, answer, image_path, created_by) VALUES (:quizId, :title, :content, :answer, :imagePath, :createdBy)",
+    { quizId, title, content, answer, imagePath: fileUrl(req.file), createdBy: req.user.id }
   );
-  logRequest("Admin", "create-question", req, { questionId: result.insertId, title });
+  logRequest("Admin", "create-question", req, { quizId, questionId: result.insertId, title });
   res.status(201).json({ id: result.insertId });
+});
+
+router.post("/bulk-delete", requireAdmin, async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter((id) => Number.isInteger(id) && id > 0) : [];
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length) return res.status(400).json({ message: "请选择要删除的题目" });
+  if (uniqueIds.length > 200) return res.status(400).json({ message: "单次最多删除 200 道题" });
+
+  const params = Object.fromEntries(uniqueIds.map((id, index) => [`id${index}`, id]));
+  const placeholders = uniqueIds.map((_, index) => `:id${index}`).join(", ");
+  const result = await query(`DELETE FROM questions WHERE id IN (${placeholders})`, params);
+  logRequest("Admin", "bulk-delete-questions", req, { ids: uniqueIds, deleted: result.affectedRows || 0 });
+  res.json({ deleted: result.affectedRows || 0 });
 });
 
 router.put("/:id", requireAdmin, upload.single("image"), async (req, res) => {
   const id = Number(req.params.id);
+  const quizId = Number(req.body.quizId);
   const title = String(req.body.title || "").trim();
   const content = String(req.body.content || "").trim();
   const answer = String(req.body.answer || "").trim();
   if (!title || !content) return res.status(400).json({ message: "题目标题和内容必填" });
 
+  const quizSet = Number.isInteger(quizId) && quizId > 0 ? "quiz_id = :quizId," : "";
   if (req.file) {
     await query(
-      "UPDATE questions SET title = :title, content = :content, answer = :answer, image_path = :imagePath WHERE id = :id",
-      { id, title, content, answer, imagePath: fileUrl(req.file) }
+      `UPDATE questions SET ${quizSet} title = :title, content = :content, answer = :answer, image_path = :imagePath WHERE id = :id`,
+      { id, quizId, title, content, answer, imagePath: fileUrl(req.file) }
     );
   } else {
     await query(
-      "UPDATE questions SET title = :title, content = :content, answer = :answer WHERE id = :id",
-      { id, title, content, answer }
+      `UPDATE questions SET ${quizSet} title = :title, content = :content, answer = :answer WHERE id = :id`,
+      { id, quizId, title, content, answer }
     );
   }
-  logRequest("Admin", "update-question", req, { questionId: id, title, imageUpdated: Boolean(req.file) });
+  logRequest("Admin", "update-question", req, { quizId: Number.isInteger(quizId) ? quizId : null, questionId: id, title, imageUpdated: Boolean(req.file) });
   res.json({ ok: true });
 });
 

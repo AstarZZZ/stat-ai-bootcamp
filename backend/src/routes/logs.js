@@ -2,6 +2,7 @@ import express from "express";
 import { pool, query } from "../db.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { listLogFiles, readLogEntries } from "../logger.js";
+import { ensureQuizSchema } from "../ensureSchema.js";
 
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
@@ -18,7 +19,8 @@ router.get("/", async (req, res) => {
 });
 
 router.get("/database", async (req, res) => {
-  const [[database], tables, [questions], [submissions], [users]] = await Promise.all([
+  await ensureQuizSchema();
+  const [[database], tables, [quizzes], [questions], [submissions], [users]] = await Promise.all([
     query("SELECT DATABASE() AS name"),
     query(`
       SELECT table_name AS tableName, table_rows AS tableRows, data_length AS dataLength, index_length AS indexLength
@@ -26,6 +28,7 @@ router.get("/database", async (req, res) => {
       WHERE table_schema = DATABASE()
       ORDER BY table_name
     `),
+    query("SELECT COUNT(*) AS total FROM quizzes"),
     query("SELECT COUNT(*) AS total FROM questions"),
     query("SELECT COUNT(*) AS total FROM submissions"),
     query("SELECT COUNT(*) AS total FROM users")
@@ -39,6 +42,7 @@ router.get("/database", async (req, res) => {
   res.json({
     database: database?.name || "",
     counts: {
+      quizzes: quizzes?.total || 0,
       questions: questions?.total || 0,
       submissions: submissions?.total || 0,
       users: users?.total || 0
